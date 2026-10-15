@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+apex_garage.db
+apex_garage.db-journal
