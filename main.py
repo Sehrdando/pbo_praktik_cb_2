@@ -9,7 +9,8 @@ from tkinter import filedialog, messagebox, ttk
 import customtkinter as ctk
 
 from database import Database
-from effects import Splash, animate, count_up, curtain, fade_in, hover, lerp, toast as show_toast
+from effects import (GradientText, Hero, Palette, Splash, animate, confetti, count_up, curtain, donut, fade_in, hover, lerp,
+                     toast as show_toast)
 
 
 ctk.set_appearance_mode("dark")
@@ -61,6 +62,19 @@ class ApexGarageApp(ctk.CTk):
         self.show_page("Dashboard")
         self._tick()
         self._pulse()
+        for key in ("<Control-k>", "<Control-K>"):
+            self.bind_all(key, lambda _e: self.open_palette())
+        for i, nm in enumerate(self.nav_buttons, 1):
+            self.bind_all(f"<Control-Key-{i}>", lambda _e, n=nm: self.show_page(n))
+
+    def open_palette(self):
+        if getattr(self, "_pal", None) is not None and self._pal.winfo_exists():
+            self._pal.destroy()
+            return
+        cmds = [(f"Buka {n}", "Navigasi", lambda n=n: self.show_page(n)) for n in self.nav_buttons]
+        cmds += [("Registrasi kendaraan baru", "Aksi", self.dialog_vehicle), ("Tambah pelanggan", "Aksi", self.dialog_customer),
+                 ("Buat order servis", "Aksi", self.dialog_service)]
+        self._pal = Palette(self, cmds)
 
     def toast(self, message, color=None):
         show_toast(self, message, color or C["green"])
@@ -95,7 +109,7 @@ class ApexGarageApp(ctk.CTk):
         brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         brand.pack(fill="x", padx=22, pady=(25, 28))
         ctk.CTkLabel(brand, text="◆", font=("Segoe UI Symbol", 26, "bold"), text_color=C["cyan"]).pack(anchor="w")
-        ctk.CTkLabel(brand, text="APEX GARAGE", font=("Segoe UI", 19, "bold"), text_color=C["text"]).pack(anchor="w", pady=(3, 0))
+        GradientText(brand, "APEX GARAGE", size=14, bg=C["sidebar"], animated=True).pack(anchor="w", pady=(3, 0))
         ctk.CTkLabel(brand, text="PRO  /  WORKSHOP OS", font=("Segoe UI", 9, "bold"), text_color=C["muted"]).pack(anchor="w", pady=(2, 0))
 
         ctk.CTkLabel(self.sidebar, text="WORKSPACE", font=("Segoe UI", 9, "bold"), text_color="#61758F").pack(anchor="w", padx=23, pady=(0, 9))
@@ -119,7 +133,7 @@ class ApexGarageApp(ctk.CTk):
         self.online_lbl = ctk.CTkLabel(status_card, text="●  SYSTEM ONLINE", text_color=C["green"], font=("Segoe UI", 10, "bold"))
         self.online_lbl.pack(anchor="w", padx=13, pady=(13, 2))
         ctk.CTkLabel(status_card, text="Local database · SQLite", text_color=C["muted"], font=("Segoe UI", 9)).pack(anchor="w", padx=13, pady=(0, 13))
-        ctk.CTkLabel(self.sidebar, text="APEX GARAGE PRO  •  v1.1", text_color="#61758F", font=("Segoe UI", 9)).pack(pady=(0, 17))
+        ctk.CTkLabel(self.sidebar, text="APEX GARAGE PRO  •  v1.2", text_color="#61758F", font=("Segoe UI", 9)).pack(pady=(0, 17))
 
         self.workspace = ctk.CTkFrame(self, fg_color=C["bg"], corner_radius=0)
         self.workspace.pack(side="left", fill="both", expand=True)
@@ -131,6 +145,9 @@ class ApexGarageApp(ctk.CTk):
         right = ctk.CTkFrame(self.topbar, fg_color="transparent")
         right.pack(side="right", anchor="center")
         today = date.today().strftime("%d %b %Y")
+        ctk.CTkButton(right, text="⌕  Cari cepat   Ctrl+K", width=150, height=32, corner_radius=9, fg_color=C["panel"], hover_color=C["panel2"],
+                      border_width=1, border_color=C["line"], text_color=C["muted"], font=("Segoe UI", 10),
+                      command=lambda: self.open_palette()).pack(side="left", padx=(0, 14))
         self.clock_lbl = ctk.CTkLabel(right, text=f"◷  {today}", text_color=C["muted"], font=("Segoe UI", 11))
         self.clock_lbl.pack(side="left", padx=(0, 16))
         profile = ctk.CTkFrame(right, fg_color=C["panel"], corner_radius=12, border_width=1, border_color=C["line"])
@@ -142,12 +159,20 @@ class ApexGarageApp(ctk.CTk):
 
     def show_page(self, name):
         self.current_page = name
-        self.top_title.configure(text=name)
+        animate(self.top_title, lambda pr: self.top_title.configure(text=name[:max(1, int(len(name) * pr + .5))]), 14)
         for label, button in self.nav_buttons.items():
             active = label == name
             button.configure(fg_color=C["blue"] if active else "transparent",
                              text_color=C["white"] if active else C["muted"],
                              hover_color=C["blue_hover"] if active else C["panel2"])
+        self.update_idletasks()
+        btn = self.nav_buttons[name]
+        y1 = btn.winfo_y() + (btn.winfo_height() - 26) // 2
+        if not hasattr(self, "nav_ind"):
+            self.nav_ind = ctk.CTkFrame(self.sidebar, width=4, height=26, corner_radius=2, fg_color=C["cyan"])
+            self._ind_y = y1
+        y0, self._ind_y = self._ind_y, y1
+        animate(self.nav_ind, lambda pr: (self.nav_ind.place(x=0, y=int(y0 + (y1 - y0) * pr)), self.nav_ind.lift()), 16)
         for child in self.page.winfo_children():
             child.destroy()
         page_methods = {
@@ -163,7 +188,7 @@ class ApexGarageApp(ctk.CTk):
         row.pack(fill="x", pady=(8, 19))
         left = ctk.CTkFrame(row, fg_color="transparent")
         left.pack(side="left", fill="x", expand=True)
-        ctk.CTkLabel(left, text=title, font=("Segoe UI", 20, "bold"), text_color=C["text"]).pack(anchor="w")
+        GradientText(left, title, size=15, bg=C["bg"]).pack(anchor="w")
         ctk.CTkLabel(left, text=subtitle, font=("Segoe UI", 11), text_color=C["muted"]).pack(anchor="w", pady=(4, 0))
         if button_text:
             self._button(row, button_text, command, primary=True).pack(side="right", padx=(10, 0), pady=3)
@@ -213,6 +238,20 @@ class ApexGarageApp(ctk.CTk):
         tree.tag_configure("active", foreground=C["cyan"])
         tree.tag_configure("done", foreground=C["green"])
         tree.tag_configure("danger", foreground=C["red"])
+        tree.tag_configure("hover", background="#1A2B44")
+        hov = {"row": None}
+
+        def on_move(e):
+            row = tree.identify_row(e.y)
+            if row == hov["row"]:
+                return
+            if hov["row"] and tree.exists(hov["row"]):
+                tree.item(hov["row"], tags=tuple(t for t in tree.item(hov["row"], "tags") if t != "hover"))
+            hov["row"] = row or None
+            if row:
+                tree.item(row, tags=tuple(tree.item(row, "tags")) + ("hover",))
+        tree.bind("<Motion>", on_move)
+        tree.bind("<Leave>", lambda _e: on_move(type("E", (), {"y": -1})()))
         return tree
 
     def _select_id(self, tree, label="data"):
@@ -226,6 +265,11 @@ class ApexGarageApp(ctk.CTk):
     def page_dashboard(self):
         stats = self.db.dashboard_stats()
         self._heading("Overview", "Pantau performa bengkel dan aktivitas servis hari ini.", "+ Buat Servis", self.dialog_service)
+        hr = datetime.now().hour
+        sap = "Selamat pagi" if hr < 11 else "Selamat siang" if hr < 15 else "Selamat sore" if hr < 19 else "Selamat malam"
+        Hero(self.page, f"{sap}, Administrator 👋",
+             f"{stats['active']} servis berjalan  ·  {stats['today_services']} order masuk hari ini  ·  pendapatan {rupiah(stats['revenue'])}",
+             stats["active"]).pack(fill="x", pady=(0, 16))
         grid = ctk.CTkFrame(self.page, fg_color="transparent")
         grid.pack(fill="x")
         for i in range(4):
@@ -241,13 +285,21 @@ class ApexGarageApp(ctk.CTk):
 
         mid = ctk.CTkFrame(self.page, fg_color="transparent")
         mid.pack(fill="both", expand=True)
-        mid.grid_columnconfigure(0, weight=3, uniform="mid")
+        mid.grid_columnconfigure(0, weight=4, uniform="mid")
         mid.grid_columnconfigure(1, weight=2, uniform="mid")
+        mid.grid_columnconfigure(2, weight=3, uniform="mid")
         chart_card = self._card(mid, "Pendapatan 7 Hari", "Total pembayaran yang tercatat per hari")
         chart_card.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=(0, 15))
         self._draw_chart(chart_card, self.db.revenue_last_seven_days())
         quick_card = self._card(mid, "Aksi Cepat", "Pintasan aktivitas operasional")
-        quick_card.grid(row=0, column=1, sticky="nsew", padx=(8, 0), pady=(0, 15))
+        quick_card.grid(row=0, column=1, sticky="nsew", padx=(8, 8), pady=(0, 15))
+        with self.db.connect() as conn:
+            counts = {r[0]: r[1] for r in conn.execute("SELECT status, COUNT(*) FROM servis GROUP BY status")}
+        donut_card = self._card(mid, "Status Servis", "Distribusi order saat ini")
+        donut_card.grid(row=0, column=2, sticky="nsew", padx=(8, 0), pady=(0, 15))
+        donut(donut_card, [("Menunggu", counts.get("Menunggu", 0), C["yellow"]), ("Dikerjakan", counts.get("Sedang Dikerjakan", 0), C["cyan"]),
+                           ("Tunggu Part", counts.get("Menunggu Suku Cadang", 0), C["purple"]), ("Selesai", counts.get("Selesai", 0), C["green"]),
+                           ("Diambil", counts.get("Diambil Pelanggan", 0), "#5B7BA6")]).pack(fill="x", expand=True, padx=15, pady=(12, 10))
         for text, subtitle, color, fn in [
             ("＋  Registrasi Kendaraan", "Tambahkan kendaraan ke sistem", C["cyan"], self.dialog_vehicle),
             ("♙  Tambah Pelanggan", "Simpan informasi pelanggan", C["purple"], self.dialog_customer),
@@ -655,6 +707,7 @@ class ApexGarageApp(ctk.CTk):
             win.destroy()
             self.show_page("Pembayaran")
             self.toast("Pembayaran tercatat")
+            confetti(self)
         self._dialog_actions(win, save)
 
     # LAPORAN
